@@ -53,7 +53,7 @@ export class QueryTaskManager {
             in: ['name', 'description', 'readme', 'topic'],
         });
         if (relevantRepos.items.length === 0) {
-            await prisma.queryTask.create({
+            const queryTask = await prisma.queryTask.create({
                 data: { status: 'COMPLETED' ,
                     query: {
                         connect: {
@@ -74,8 +74,13 @@ export class QueryTaskManager {
                 },
             
             });
+
+            await prisma.query.update({
+                where: { id: queryId },
+                data: { taskId: queryTask.id },
+            });
       
-            return queryId;
+            return queryTask.id;
         }
 
         const taskState: ContributorsMatchTaskState = {

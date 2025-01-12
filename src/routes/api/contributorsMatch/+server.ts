@@ -13,7 +13,7 @@ export type GetContributorsMatchResponse = {
         score: number;
         location: string;
         email: string | null;
-    }[] | null;
+    }[];
     status: 'COMPLETED' | 'RUNNING' | 'CANCELLED'  | null;
 }
 
@@ -25,13 +25,13 @@ export const GET = async ({ params, url }) => {
     if (!queryId) {
         return new Response(JSON.stringify({ error: 'queryId is required' }), { status: 400 });
     }
-    const { metadata, matches: _matches } = await getContributorsMatch(queryId);
+    const { metadata, matches: _matches, status } = await getContributorsMatch(queryId);
     if (!_matches) {
         return new Response(JSON.stringify({ metadata, matches: [] }));
     }
 
     const matches = _matches.filter(m => !!m.profile) ;
-    return new Response(JSON.stringify({ metadata, matches: matches.map(m => ({
+    return new Response(JSON.stringify({ metadata, status, matches: matches.map(m => ({
         fullName: (m.profile!.name ? m.profile!.name.substring(0, 20) + (m.profile!.name.length > 20 ? '...' : '') : m.profile!.login),
         email: m.profile!.email,
         avatarUrl: m.profile!.avatar_url,
@@ -47,6 +47,7 @@ export const GET = async ({ params, url }) => {
 export const POST = async ({ request }) => {
     const { query } = await request.json();
     const queryId = await queryMatchingGithubUsers(query);
+    console.log("queryId", queryId);
     return new Response(JSON.stringify({ queryId }));
 }
 

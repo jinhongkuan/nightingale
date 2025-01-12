@@ -1,5 +1,6 @@
 import { OpenAI } from 'openai';
 import { OPENAI_API_KEY } from '$env/static/private';
+import prisma from '$lib/db/prisma';
 
 const openai = new OpenAI({
     apiKey: OPENAI_API_KEY,
@@ -10,13 +11,22 @@ class OpenAIRequestQueue {
     private static readonly MAX_CONCURRENT = 10;
     private static readonly PAUSE_ON_ERROR = 1000;
 
-    static async add<T>(fn: () => Promise<T>): Promise<T> {
+    static async add<T>(queryTaskId: string | null, fn: () => Promise<T>): Promise<T | null> {
         // Wait if at capacity
         while (this.queue.length >= this.MAX_CONCURRENT) {
             await Promise.race(this.queue);
         }
 
         try {
+
+            if (queryTaskId) {
+                try {
+                    await prisma.queryTask.findUniqueOrThrow({ where: { id: queryTaskId, status: { not: 'CANCELLED' } } })
+                } catch (e) {
+                    return null;
+                }
+            }
+           
             // Add request to queue and execute
             const promise = fn();
             this.queue.push(promise);
@@ -32,13 +42,13 @@ class OpenAIRequestQueue {
             
             // Pause and retry on error
             await new Promise(resolve => setTimeout(resolve, this.PAUSE_ON_ERROR));
-            return this.add(fn);
+            return this.add(queryTaskId, fn);
         }
     }
 }
 
-export const queryJSON = async (query: string) => {
-    return OpenAIRequestQueue.add(async () => {
+export const queryJSON = async (queryTaskId: string | null, query: string) => {
+    return OpenAIRequestQueue.add(queryTaskId, async () => {
         const response = await openai.beta.chat.completions.parse({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: query }],
@@ -49,7 +59,6 @@ export const queryJSON = async (query: string) => {
             throw new Error('No response from OpenAI');
         }
 
-        console.log(content);
         const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
         const str = jsonMatch ? jsonMatch[1] : content;
         try {
@@ -61,7 +70,7 @@ export const queryJSON = async (query: string) => {
 }
 
 export const queryText = async (query: string) => {
-    return OpenAIRequestQueue.add(async () => {
+    return OpenAIRequestQueue.add(null, async () => {
         const response = await openai.beta.chat.completions.parse({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: query }],

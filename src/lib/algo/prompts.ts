@@ -2,7 +2,7 @@ import * as OpenAI from "$lib/openai"
 import { OpenAIQueryMatchingUsersResponse, OpenAIQueryMatchingUsersSummaryResponse } from "./schema"
 const getPromptMatchingUsersSummary = (query: string, profile: { location: string | null }, repositories: { description: string, name: string,  language: string | null, created_at: string }[]) => {
     return `
-    Summarize in a paragraph of 1-2 sentences why this person is a good fit for the query, and then give a holistic rating on the scale of 5-20 on how well they match the query. Highly prioritize proximal location if provided. Return answer in JSON format.
+    Summarize in a paragraph of 1-2 sentences why this person is a good fit for the query, and then give a holistic rating on the scale of 5-20 on how well they match the query. Highly prioritize proximal location if provided. Only mention positive aspects of the person. Return answer in JSON format.
     Example response: {
         "summary": "James has extensive experience with the Svelte and have worked on relevant projects. For instance, he was a core contributor to XYZ which does ABC.",
         "rating": 8.5
@@ -40,14 +40,17 @@ const getRandomPrompt =  () => {
     return "Short description of a technical collaborator for a random project idea that uses technology to solve a real problem that will bring about public good. be specific about the problem, ideally a hot-button issue.  be specific about the role of the person (e.g. backend developer with Golang experience, frontend developer with Svelte experience). 1 sentence. no need to be formal. omit 'looking for'/'need a' etc. specify location (ideally related to the issue)"
 }
 
-export const obtainSearchParamsForMatchingContributors = async (query: string) => {
-    const openai = await OpenAI.queryJSON(getPromptMatchingUsers(query));
+export const obtainSearchParamsForMatchingContributors = async ( query: string) => {
+    const openai = await OpenAI.queryJSON(null, getPromptMatchingUsers(query));
+    if (!openai) {
+        throw new Error('Failed to obtain search params for matching contributors');
+    }
     return OpenAIQueryMatchingUsersResponse.parse(openai);
 }
 
 
 
-export const summarizeQueryMatch = async (query: string, profile: { location: string | null }, repositories: { description: string , name: string,  language: string | null, created_at: string }[]) => {
+export const summarizeQueryMatch = async (queryTaskId: string, query: string, profile: { location: string | null }, repositories: { description: string , name: string,  language: string | null, created_at: string }[]) => {
    if (repositories.length < 3) {
     return {
         summary: '',
@@ -55,7 +58,13 @@ export const summarizeQueryMatch = async (query: string, profile: { location: st
     };
    }
     const prompt = getPromptMatchingUsersSummary(query, profile, repositories);
-    const summary = await OpenAI.queryJSON(prompt);
+    const summary = await OpenAI.queryJSON(queryTaskId, prompt);
+    if (!summary) {
+        return {
+            summary: '',
+            rating: 5,
+        };
+    }
     return OpenAIQueryMatchingUsersSummaryResponse.parse(summary);
 }
 

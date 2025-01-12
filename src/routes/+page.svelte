@@ -15,7 +15,6 @@
             await fetch(`/api/contributorsMatch?queryId=${queryId}`, {
                 method: 'DELETE'
             });
-            queryId = null;
             searching = false;
             matches = [];
             if (searchInterval) clearInterval(searchInterval);
@@ -28,16 +27,15 @@
                 body: JSON.stringify({ query })
             });
             const data = await response.json();
-            queryId = data.queryId;
-            startPolling();
+            startPolling(data.queryId);
         }
     }
 
-    async function fetchMatches() {
-        if (!queryId) return;
+    async function fetchMatches(queryId: string) {
+ 
         const response = await fetch(`/api/contributorsMatch?queryId=${queryId}`);
         const data: GetContributorsMatchResponse = await response.json();
-        matches = data.matches;
+        matches = [...new Set([...matches, ...data.matches])];
         if (data.status === 'COMPLETED') {
             searching = false;
             if (searchInterval) clearInterval(searchInterval);
@@ -57,9 +55,9 @@
         }
     }
 
-    function startPolling() {
-        searchInterval = setInterval(fetchMatches, 10000);
-        fetchMatches(); // Initial fetch
+    function startPolling(queryId: string) {
+        searchInterval = setInterval(() => fetchMatches(queryId), 5000);
+        fetchMatches(queryId); // Initial fetch
     }
 
     onMount(() => {
@@ -74,8 +72,11 @@
         <h1 class="text-4xl font-bold mb-4 transition-opacity duration-500" class:flash={searching}>
             Nightingale
         </h1>
-        <p class="text-lg mb-8">
-            Build what you believe in <span class="mx-2">•</span> Find your partner in crime
+        <p class="text-lg mb-8 flex flex-col sm:flex-row sm:items-center justify-center">
+            <span>Build what you believe in</span>
+            <span class="mx-2 sm:hidden">•</span>
+            <span class="mx-2 hidden sm:inline">•</span>
+            <span>Catalyze change with tech</span>
         </p>
 
         <div class="w-full max-w-2xl">
@@ -117,8 +118,7 @@
         </div>
     </div>
 
-    {#if matches && matches.length > 0}
-        <div class="mt-12 w-full max-w-3xl" transition:fade="{{ duration: 300 }}">
+        <div class="mt-12 w-full max-w-3xl" in:fade="{{ duration: 300 }}">
             <div class="max-h-[600px] overflow-y-auto">
                 {#each matches as match}
                     <div class="border rounded-lg p-4 mb-4 flex items-start">
@@ -160,7 +160,6 @@
                 {/each}
             </div>
         </div>
-    {/if}
 </main>
 
 <style>
