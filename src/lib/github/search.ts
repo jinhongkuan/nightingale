@@ -11,7 +11,7 @@ export const searchRepo = async (apiKey: string, params: SearchRepoParams) => {
     // Build query string from params
     const queryParts: string[] = [];
     if (params.keywords?.length) {
-        queryParts.push(...params.keywords.map(kw => `"${kw}"`));
+        queryParts.push(`(${params.keywords.map(kw => `"${kw}"`).join(' OR ')})`);
     }
 
     if (params.language?.length) {
@@ -27,6 +27,7 @@ export const searchRepo = async (apiKey: string, params: SearchRepoParams) => {
     }
 
     const queryString = queryParts.join(' ');
+    console.log(queryString);
     const searchParams = `q=${encodeURIComponent(queryString)}&sort=created&order=desc&per_page=50`;
 
     const response = await fetch(`https://api.github.com/search/repositories?${searchParams}`, {

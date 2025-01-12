@@ -50,7 +50,7 @@ export class QueryTaskManager {
         const metadata = ContributorsMatchQueryMetadata.parse(query.metadata);
         const relevantRepos = await Github.search.repo("system", {
             keywords: metadata.keywords,
-            in: ['name', 'description', 'readme', 'topic'],
+            in: ['description'],
         });
         if (relevantRepos.items.length === 0) {
             const queryTask = await prisma.queryTask.create({

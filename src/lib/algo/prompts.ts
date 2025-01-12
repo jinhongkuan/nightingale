@@ -2,9 +2,9 @@ import * as OpenAI from "$lib/openai"
 import { OpenAIQueryMatchingUsersResponse, OpenAIQueryMatchingUsersSummaryResponse } from "./schema"
 const getPromptMatchingUsersSummary = (query: string, profile: { location: string | null }, repositories: { description: string, name: string,  language: string | null, created_at: string }[]) => {
     return `
-    Summarize in a paragraph of 1-2 sentences why this person is a good fit for the query, and then give a holistic rating on the scale of 5-20 on how well they match the query. Highly prioritize proximal location if provided. Only mention positive aspects of the person. Return answer in JSON format.
+    Summarize why this person is a good fit for the query, and then give a holistic rating on the scale of 5-20 on how well they match the query. Highly prioritize proximal location if provided. when describing pros and cons with regard to proximity, simply state where they are based, without making value judgements. Return answer in JSON format, pros first, followed by cons.
     Example response: {
-        "summary": "James has extensive experience with the Svelte and have worked on relevant projects. For instance, he was a core contributor to XYZ which does ABC.",
+        "summary": "+worked on project ABC, which applies ML to healthcare|-location unknown-no experience with Svelte",
         "rating": 8.5
     }
     Query: ${query}
