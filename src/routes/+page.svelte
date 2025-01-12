@@ -16,11 +16,11 @@
                 method: 'DELETE'
             });
             searching = false;
-            matches = [];
             if (searchInterval) clearInterval(searchInterval);
         } else {
             // Start search
             searching = true;
+            matches = [];
             const response = await fetch('/api/contributorsMatch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
