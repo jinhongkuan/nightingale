@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  name String
+  // queries Query[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GithubUser {
+  id String @id @default(cuid())
+  username String @unique
+  queryMatches QueryMatch[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum QueryTaskStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model Query {
+  id String @id @default(cuid())
+  query String
+  task QueryTask? 
+  // initiator User @relation(fields: [initiatorId], references: [id])
+  // initiatorId String
+  taskId String? @unique
+  metadata Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QueryTask {
+  id String @id @default(cuid())
+  query Query @relation(fields: [queryId], references: [id])
+  queryId String @unique
+  matches QueryMatch[]
+  status QueryTaskStatus
+  taskState Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QueryMatch {
+  id String @id @default(cuid())
+  queryTask QueryTask @relation(fields: [queryTaskId], references: [id])
+  queryTaskId String
+  githubUser GithubUser @relation(fields: [githubUserId], references: [id])
+  githubUserId String
+  summary String
+  rating Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
