@@ -174,7 +174,7 @@
     }
 
     .flash {
-        animation: flash 1s infinite;
+        animation: flash 1s;
     }
 </style>   
 
