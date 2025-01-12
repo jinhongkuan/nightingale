@@ -59,7 +59,7 @@ const getContributorsMatchSummaries = async (matches: ContributorsMatchTaskState
         })).id, user];
     }));
     for (const [id, user] of missingUsersWithDbEntry) {
-        const { summary, rating } = await summarizeQueryMatch(query, matches[user].profile, matches[user].repositories.filter(r => r.description) as { description: string; name: string; language: string | null }[]);
+        const { summary, rating } = await summarizeQueryMatch(query, matches[user].profile, matches[user].repositories.filter(r => r.description) as { description: string; name: string; language: string | null; created_at: string }[]);
         await prisma.queryMatch.update({
             where: {
                 id,

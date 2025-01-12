@@ -6,73 +6,32 @@ const openai = new OpenAI({
 });
 
 class OpenAIRequestQueue {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private static queue: (() => Promise<any>)[] = [];
-    private static buffer: Promise<void>[] = [];
-    private static readonly MAX_CONCURRENT = 10; // Max concurrent requests
-    private static readonly BUFFER_WINDOW = 1000;
-    private static readonly PAUSE_ON_ERROR = 1000; // Pause for 1 second on error
+    private static queue: Promise<unknown>[] = [];
+    private static readonly MAX_CONCURRENT = 10;
+    private static readonly PAUSE_ON_ERROR = 1000;
 
     static async add<T>(fn: () => Promise<T>): Promise<T> {
-        // Clean expired buffer entries
-        this.buffer = this.buffer.filter(p => p !== Promise.resolve());
-
-        // If at capacity, wait for a slot
-        if (this.buffer.length >= this.MAX_CONCURRENT) {
-            await Promise.race(this.buffer);
-        }
-
-        // Add new request to buffer with timeout
-        const bufferPromise = new Promise<void>(resolve => {
-            setTimeout(resolve, this.BUFFER_WINDOW);
-        });
-        this.buffer.push(bufferPromise);
-
-        // If there are queued items, add to queue
-        if (this.queue.length > 0) {
-            return new Promise((resolve, reject) => {
-                this.queue.push(async () => {
-                    try {
-                        resolve(await fn());
-                    } catch (err) {
-                        // Pause on error
-                        await new Promise(resolve => setTimeout(resolve, this.PAUSE_ON_ERROR));
-                        // Re-add failed task to front of queue
-                        this.queue.unshift(async () => {
-                            try {
-                                resolve(await fn());
-                            } catch (retryErr) {
-                                reject(retryErr);
-                            }
-                        });
-                    }
-                });
-            });
+        // Wait if at capacity
+        while (this.queue.length >= this.MAX_CONCURRENT) {
+            await Promise.race(this.queue);
         }
 
         try {
-            // Execute request
-            const result = await fn();
+            // Add request to queue and execute
+            const promise = fn();
+            this.queue.push(promise);
+            const result = await promise;
             
-            // Process next in queue if any
-            if (this.queue.length > 0) {
-                const next = this.queue.shift();
-                next?.().catch(console.error);
-            }
-
+            // Remove from queue when done
+            this.queue = this.queue.filter(p => p !== promise);
+            
             return result;
-        } catch (err) {
-            // Pause on error
+        } catch (error) {
+            // Remove failed request
+            this.queue = this.queue.filter(p => p !== fn());
+            
+            // Pause and retry on error
             await new Promise(resolve => setTimeout(resolve, this.PAUSE_ON_ERROR));
-            // Re-add failed task to front of queue
-            this.queue.unshift(fn);
-            
-            if (this.queue.length > 0) {
-                const next = this.queue.shift();
-                next?.().catch(console.error);
-            }
-            
-            // Return a new promise that will resolve when the retried task completes
             return this.add(fn);
         }
     }
@@ -81,7 +40,7 @@ class OpenAIRequestQueue {
 export const queryJSON = async (query: string) => {
     return OpenAIRequestQueue.add(async () => {
         const response = await openai.beta.chat.completions.parse({
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: query }],
         });
 
@@ -104,7 +63,7 @@ export const queryJSON = async (query: string) => {
 export const queryText = async (query: string) => {
     return OpenAIRequestQueue.add(async () => {
         const response = await openai.beta.chat.completions.parse({
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: query }],
         });
         return response.choices[0].message.content;

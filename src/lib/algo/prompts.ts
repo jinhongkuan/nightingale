@@ -2,7 +2,7 @@ import * as OpenAI from "$lib/openai"
 import { OpenAIQueryMatchingUsersResponse, OpenAIQueryMatchingUsersSummaryResponse } from "./schema"
 const getPromptMatchingUsersSummary = (query: string, profile: { location: string | null }, repositories: { description: string, name: string,  language: string | null, created_at: string }[]) => {
     return `
-    Summarize in a paragraph of 1-3 sentences why this person is a good fit for the query, and then give a holistic rating on the scale of 5-10 on how well they match the query. Return answer in JSON format.
+    Summarize in a paragraph of 1-2 sentences why this person is a good fit for the query, and then give a holistic rating on the scale of 5-20 on how well they match the query. Highly prioritize proximal location if provided. Return answer in JSON format.
     Example response: {
         "summary": "James has extensive experience with the Svelte and have worked on relevant projects. For instance, he was a core contributor to XYZ which does ABC.",
         "rating": 8.5
