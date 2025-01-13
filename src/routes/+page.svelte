@@ -96,19 +96,21 @@
         </h1>
         <div class="w-full max-w-md ">
             <p class="text-lg mb-4 flex flex-col sm:flex-row sm:items-center justify-center cursor-pointer hover:opacity-80" on:click={() => showMission = !showMission}>
-                <span>Your catalog for change</span>
+                <span class:flash-build-text={flashBuildText}>Build what you believe in</span>
+              
                 <span class="mx-2 sm:hidden">•</span>
                 <span class="mx-2 hidden sm:inline">•</span>
-                <span class:flash-build-text={flashBuildText}>Build what you believe in</span>
+                <span>Catalyzing change with tech</span>
+
             </p>
-            {#if showMission}
+            <!-- {#if showMission}
                 <div class="bg-gray-50 border rounded-lg p-4 mb-8" transition:slide="{{ duration: 300 }}">
                     <p class="text-sm">
                          redirect the focus of technology towards human flourishing, 
                          and leverage market competition towards the greater good
                     </p>
                 </div>
-            {/if}
+            {/if} -->
         </div>
 
         <div class="w-full max-w-md ">
