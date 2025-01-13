@@ -2,9 +2,9 @@ import * as OpenAI from "$lib/openai"
 import { OpenAIQueryMatchingUsersResponse, OpenAIQueryMatchingUsersSummaryResponse } from "./schema"
 const getPromptMatchingUsersSummary = (query: string, profile: { location: string | null }, repositories: { description: string, name: string,  language: string | null, created_at: string }[]) => {
     return `
-    Summarize why this person is a good fit for the query, and then give a holistic rating on the scale of 5-20 on how well they match the query. Highly prioritize proximal location if provided. when describing pros and cons with regard to proximity, simply state where they are based, without making value judgements. Return answer in JSON format, pros first, followed by cons.
+    Summarize why this person is a good fit for the query, and then give a holistic rating on the scale of 5-20 on how well they match the query. Highly prioritize proximal location if provided for the sake of rating, but do not mention it in the summary. Return answer in JSON format, pros first, followed by cons.
     Example response: {
-        "summary": "+worked on project ABC, which applies ML to healthcare|-location unknown-no experience with Svelte",
+        "summary": "+worked on project ABC, which applies ML to healthcare+knowledge of Javascript|-location unknown-no experience with Svelte",
         "rating": 8.5
     }
     Query: ${query}
@@ -22,12 +22,12 @@ const getPromptMatchingUsersSummary = (query: string, profile: { location: strin
 
 const getPromptMatchingUsers = (query: string) => {
     return `
-    Return a list of domain keywords, developer role and language in JSON format that are relevant to the query. Ignore language id it is not explicitly mentioned. Avoid any other text in the response.
+    Return a list of domain keywords that would make for an effective github search query, developer role and language in JSON format that are relevant to the query. Ignore language id it is not explicitly mentioned. Avoid any other text in the response.
     e.g.
     Query: "I am looking for a frontend developer with Svelte experience interested in healthcare"
     Response: 
         {
-            "keywords": ["healthcare", "medical", "doctor", "claims"],
+            "keywordsString": "\\"healthcare\\" AND (\\"medical\\" OR \\"doctor\\" OR \\"claims\\")",
             "role": ["frontend", "fullstack"],
             "language": ["svelte", "typescript"]
         }

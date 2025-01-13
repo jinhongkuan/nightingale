@@ -1,7 +1,7 @@
 import { SearchRepoResponse } from "./schema";
 
 export type SearchRepoParams = {
-    keywords?: string[];
+    keywordsString: string;
     language?: string[];
     in?: string[];
     user?: string;
@@ -10,9 +10,7 @@ export type SearchRepoParams = {
 export const searchRepo = async (apiKey: string, params: SearchRepoParams) => {
     // Build query string from params
     const queryParts: string[] = [];
-    if (params.keywords?.length) {
-        queryParts.push(`(${params.keywords.map(kw => `"${kw}"`).join(' OR ')})`);
-    }
+        queryParts.push(params.keywordsString);
 
     if (params.language?.length) {
         queryParts.push(...params.language.map(lang => `language:${lang}`));

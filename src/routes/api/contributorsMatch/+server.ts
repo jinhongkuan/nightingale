@@ -15,6 +15,7 @@ export type GetContributorsMatchResponse = {
         email: string | null;
     }[];
     status: 'COMPLETED' | 'RUNNING' | 'CANCELLED'  | null;
+    indexedCount: number;
 }
 
 const matchScore = (totalContributions: number, rating: number) => {
@@ -25,13 +26,15 @@ export const GET = async ({ params, url }) => {
     if (!queryId) {
         return new Response(JSON.stringify({ error: 'queryId is required' }), { status: 400 });
     }
-    const { metadata, matches: _matches, status } = await getContributorsMatch(queryId);
+    const { metadata, matches: _matches, status, indexedCount } = await getContributorsMatch(queryId);
     if (!_matches) {
-        return new Response(JSON.stringify({ metadata, matches: [] }));
+        return new Response(JSON.stringify({ metadata, matches: [], indexedCount }));
     }
-
+    console.log('indexedCount', indexedCount);
+    console.log('matches', _matches.length);
     const matches = _matches.filter(m => !!m.profile) ;
-    return new Response(JSON.stringify({ metadata, status, matches: matches.map(m => ({
+    console.log('matches with profile', matches.length);
+    return new Response(JSON.stringify({ metadata, indexedCount, status, matches: matches.map(m => ({
         fullName: (m.profile!.name ? m.profile!.name.substring(0, 20) + (m.profile!.name.length > 20 ? '...' : '') : m.profile!.login),
         email: m.profile!.email,
         avatarUrl: m.profile!.avatar_url,

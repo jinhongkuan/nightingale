@@ -17,7 +17,6 @@ class OpenAIRequestQueue {
             await Promise.race(this.queue);
         }
 
-        try {
 
             if (queryTaskId) {
                 try {
@@ -32,18 +31,20 @@ class OpenAIRequestQueue {
             this.queue.push(promise);
             const result = await promise;
             
-            // Remove from queue when done
-            this.queue = this.queue.filter(p => p !== promise);
+            if (result === null) {
+                // Remove failed request
+                this.queue = this.queue.filter(p => p !== fn());
+    
+                // Pause and retry on error
+                await new Promise(resolve => setTimeout(resolve, this.PAUSE_ON_ERROR));
+                return this.add(queryTaskId, fn);
+            } else {
+                // Remove from queue when done
+                this.queue = this.queue.filter(p => p !== promise);
+                return result;
+            }
             
-            return result;
-        } catch (error) {
-            // Remove failed request
-            this.queue = this.queue.filter(p => p !== fn());
-            
-            // Pause and retry on error
-            await new Promise(resolve => setTimeout(resolve, this.PAUSE_ON_ERROR));
-            return this.add(queryTaskId, fn);
-        }
+   
     }
 }
 
@@ -64,7 +65,7 @@ export const queryJSON = async (queryTaskId: string | null, query: string) => {
         try {
             return JSON.parse(str);
         } catch (e) {
-            throw new Error(`Failed to parse JSON from OpenAI response: ${str}. Error: ${e}`);
+            return null;
         }
     });
 }

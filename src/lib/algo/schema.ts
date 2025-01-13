@@ -7,7 +7,7 @@ export type QueryTaskResult = {
 }
 
 export const ContributorsMatchQueryMetadata = z.object({
-    keywords: z.array(z.string()),
+    keywordsString: z.string(),
     role: z.array(z.string()),
     language: z.array(z.string()).optional(),
     location: z.array(z.string()).optional(),
@@ -20,14 +20,17 @@ export const OpenAIQueryMatchingUsersSummaryResponse = z.object({
     summary: z.string(),
     rating: z.number(),
 });
+export const ContributorsMatchTaskCfg = z.object({
+    batchSize: z.number(),
+    minContributions: z.number(),
+    maxContributors: z.number(),
+    maxResults: z.number(),
+    haltOnRContributorsCount: z.number(),
+});
 export const ContributorsMatchTaskState = z.object({
     type: z.literal('contributors_match'),
-    config: z.object({
-        batchSize: z.number(),
-        minContributions: z.number(),
-        maxContributors: z.number(),
-        maxResults: z.number(),
-    }),
+    config: ContributorsMatchTaskCfg,
+    
     repositories: z.object({
         contributorUrls: z.array(z.string()),
         index: z.number(),
@@ -40,12 +43,8 @@ export const ContributorsMatchTaskState = z.object({
     })),
 }).extend(ContributorsMatchQueryMetadata.shape);
 
-export type ContributorsMatchTaskCfg = {
-    batchSize: number;
-    minContributions: number;
-    maxContributors: number;
-    maxResults: number;
-}
+
+export type ContributorsMatchTaskCfg = z.infer<typeof ContributorsMatchTaskCfg>;
 
 export const QueryTaskState = z.discriminatedUnion('type', [ContributorsMatchTaskState]);
 

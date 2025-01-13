@@ -49,7 +49,7 @@ export class QueryTaskManager {
         });
         const metadata = ContributorsMatchQueryMetadata.parse(query.metadata);
         const relevantRepos = await Github.search.repo("system", {
-            keywords: metadata.keywords,
+            keywordsString: metadata.keywordsString,
             in: ['description'],
         });
         if (relevantRepos.items.length === 0) {
@@ -142,6 +142,7 @@ export class QueryTaskManager {
                 }
                 queryTasks.ongoing = false;
                 QueryTaskManager.continueUserQueryTask(userId);
+              
             });
         }
     }
@@ -160,10 +161,20 @@ export class QueryTask {
     }
 
     public async step(): Promise<QueryTaskResult> {
+        let result: QueryTaskResult;
         if (this.state.type === 'contributors_match') {
-            return this.stepContributorsMatch(this.state);
+            result = await this.stepContributorsMatch(this.state);
+          
+        } else {
+            throw new Error(`Unknown task type: ${this.state.type}`);
         }
-        throw new Error(`Unknown task type: ${this.state.type}`);
+        if (result.status === 'COMPLETED') {
+            await prisma.queryTask.update({
+                where: { id: this.taskId },
+                data: { status: 'COMPLETED' },
+            });
+        }
+        return result;
     }
 
     private async stepContributorsMatch(state: ContributorsMatchTaskState): Promise<QueryTaskResult> {
@@ -182,10 +193,20 @@ export class QueryTask {
 
         const updateUserContributions = async (contributor: string, contributions: number): Promise<number> => {
             if (!state.matches[contributor]) {
+                const profile = await Github.get.userProfile(this.initiatorId, contributor);
+                if (!profile.success) {
+                    console.log('failed to get profile', contributor);
+                    return 0;
+                }
+                const repos = await Github.get.userRepos(this.initiatorId, contributor);
+                if (!repos.success) {
+                    console.log('failed to get repos', contributor);
+                    return 0;
+                }
                 state.matches[contributor] = {
-                    profile: await Github.get.userProfile(this.initiatorId, contributor),
+                    profile: profile.data,
                     total_contributions: contributions,
-                    repositories: await Github.get.userRepos(this.initiatorId, contributor),
+                    repositories: repos.data,
                 };
                 return 2;
             } else {
@@ -195,23 +216,30 @@ export class QueryTask {
         }
 
         while (currentBatch < state.config.batchSize) {
-                if (state.repositories.index == state.repositories.contributorUrls.length) {
+            
+                if (state.repositories.index >= state.repositories.contributorUrls.length || (Object.keys(state.matches).length >= state.config.haltOnRContributorsCount)) {
                     await persistState();
                     return {
                         batchSize: currentBatch,
                         status: 'COMPLETED',
                     };
                 }
-                let repoContributions = await Github.get.contributors(this.initiatorId, state.repositories.contributorUrls[state.repositories.index]);
-                currentBatch++;
-                
-                repoContributions = repoContributions
+                console.log(state.repositories.index, state.repositories.contributorUrls.length, Object.keys(state.matches).length, state.config.haltOnRContributorsCount);
+                const repoContributions = await Github.get.contributors(this.initiatorId, state.repositories.contributorUrls[state.repositories.index]);
+                if (repoContributions.success) {
+                    const filteredContributions = repoContributions.data
                     .filter(contribution => contribution.contributions >= state.config.minContributions)
                     .slice(0, state.config.maxContributors);
-                 ;
-                for (const contribution of repoContributions) {
-                    currentBatch += await updateUserContributions(contribution.login, contribution.contributions);
+                    ;
+                    for (const contribution of filteredContributions) {
+                        currentBatch += await updateUserContributions(contribution.login, contribution.contributions);
+                    }
+                } else {
+                    console.log('failed to get contributors', state.repositories.contributorUrls[state.repositories.index]);
                 }
+
+                currentBatch++;
+                             
                 state.repositories.index++;      
         }
     

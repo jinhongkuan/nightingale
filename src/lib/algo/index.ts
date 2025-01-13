@@ -15,14 +15,18 @@ export const queryMatchingGithubUsers = async (query: string): Promise<string> =
     console.log("queryId", queryId);
      await QueryTaskManager.beginContributorsMatchQueryTask(queryId, {
         batchSize: 20,
-        minContributions: 10,
-        maxContributors: 3,
-        maxResults: 20,
+        minContributions: 25,
+        maxContributors: 10,
+        maxResults: 30,
+        haltOnRContributorsCount: 50,
     });
     return queryId;
 }
 
-const getContributorsMatchSummaries = async (matches: ContributorsMatchTaskState['matches'], queryTaskId: string, query: string): Promise<(ContributorsMatchTaskState['matches'][string] & { summary: string; rating: number })[]> => {
+const getContributorsMatchSummaries = async (matches: ContributorsMatchTaskState['matches'], queryTaskId: string, query: string): Promise<{
+    summaries: (ContributorsMatchTaskState['matches'][string] & { summary: string; rating: number })[];
+    indexedCount: number;
+}> => {
     const matchedUsers = Object.keys(matches);
     const matchRecords = await prisma.queryMatch.findMany({
         where: {
@@ -38,10 +42,11 @@ const getContributorsMatchSummaries = async (matches: ContributorsMatchTaskState
         },
     });
     const summaries = matchRecords.map(m => ({
-        ...matches[m.githubUserId],
+        ...matches[m.githubUser.username],
         summary: m.summary,
         rating: m.rating,
     }));
+
 
     const recordedUsers = matchRecords.map(m => m.githubUser);
     const missingUsers = matchedUsers.filter(u => !recordedUsers.some(r => r.username === u));
@@ -62,8 +67,10 @@ const getContributorsMatchSummaries = async (matches: ContributorsMatchTaskState
         })).id, user];
     }));
     for (const [id, user] of missingUsersWithDbEntry) {
-        const { summary, rating } = await summarizeQueryMatch(queryTaskId, query, matches[user].profile, matches[user].repositories.filter(r => r.description) as { description: string; name: string; language: string | null; created_at: string }[]);
-        await prisma.queryMatch.update({
+        // Run them asynchronously
+        summarizeQueryMatch(queryTaskId, query, matches[user].profile, matches[user].repositories.filter(r => r.description) as { description: string; name: string; language: string | null; created_at: string }[]).then(({ summary, rating }) => {
+            console.log('');
+            prisma.queryMatch.update({
             where: {
                 id,
             },
@@ -71,20 +78,23 @@ const getContributorsMatchSummaries = async (matches: ContributorsMatchTaskState
                 summary,
                 rating,
             },
+        }).then(m => {
+            console.log('');
         });
-        summaries.push({
-            ...matches[user],
-            summary,
-            rating,
-        });
+    });
+
     }
-    return summaries;
+    return {
+        summaries: summaries.filter(m => m.rating > 0),
+        indexedCount: summaries.length,
+    };
 }
 
 export const getContributorsMatch = async (queryId: string): Promise<{
     metadata: ContributorsMatchQueryMetadata;
     status: QueryTaskStatus | null;
     matches: (ContributorsMatchTaskState['matches'][string] & { summary: string; rating: number })[] | null;
+    indexedCount: number;
 }> => {
     const query = await prisma.query.findUniqueOrThrow({
         where: { id: queryId },
@@ -100,6 +110,7 @@ export const getContributorsMatch = async (queryId: string): Promise<{
             metadata: searchParams,
             status: null,
             matches: null,
+            indexedCount: 0,
         };
     }
     const state = ContributorsMatchTaskState.parse(task.taskState);
@@ -118,7 +129,8 @@ export const getContributorsMatch = async (queryId: string): Promise<{
     return {
         metadata: searchParams,
         status: task.status,
-        matches: summaries,
+        matches: summaries.summaries,
+        indexedCount: summaries.indexedCount,
     };
 }
 
