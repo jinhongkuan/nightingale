@@ -100,7 +100,7 @@
               
                 <span class="mx-2 sm:hidden">•</span>
                 <span class="mx-2 hidden sm:inline">•</span>
-                <span>Catalyzing change with tech</span>
+                <span>Catalyze change with tech</span>
 
             </p>
             <!-- {#if showMission}
