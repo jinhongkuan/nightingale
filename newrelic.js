@@ -1,6 +1,6 @@
 export default {
 	app_name: ['Nightingale'],
-	license_key: 'a8f36a7d4605fbe91703e0e791dfa925FFFFNRAL',
+	license_key: process.env.NEW_RELIC_LICENSE_KEY,
 	logging: {
 		level: 'info'
 	},
