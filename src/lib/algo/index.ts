@@ -1,19 +1,12 @@
 import { ContributorsMatchQueryMetadata, ContributorsMatchTaskState } from './schema';
 import { QueryTaskManager } from './queryTask';
-import { obtainSearchParamsForMatchingContributors, summarizeQueryMatch } from './prompts';
+import { summarizeQueryMatch } from './prompts';
 import prisma from '$lib/db/prisma';
 import type { QueryTaskStatus } from '@prisma/client';
 
 export const queryMatchingGithubUsers = async (query: string): Promise<string> => {
-    const searchParams = await obtainSearchParamsForMatchingContributors(query);
-    const { id: queryId } = await prisma.query.create({
-        data: {
-            query: query,
-            metadata: searchParams,
-        },
-    });
-    console.log("queryId", queryId);
-     await QueryTaskManager.beginContributorsMatchQueryTask(queryId, {
+
+    const { queryId } = await QueryTaskManager.beginContributorsMatchQuery(query, {
         batchSize: 20,
         minContributions: 25,
         maxContributors: 10,

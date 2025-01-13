@@ -16,7 +16,7 @@
     const SEARCH_INTERVAL = 5000;
     onMount(() => {
         setInterval(() => {
-            flashBuildText = Math.random() < 0.1;
+            flashBuildText = Math.random() < 0.2;
         }, 10000);
     });
     async function handleSubmit() {

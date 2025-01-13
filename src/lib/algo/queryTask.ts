@@ -1,6 +1,8 @@
 import * as Github from '$lib/github';
 import prisma from '$lib/db/prisma';
 import { ContributorsMatchQueryMetadata, ContributorsMatchTaskState, QueryTaskState, type ContributorsMatchTaskCfg, type QueryTaskResult } from './schema';
+import type { RepositoriesResponse } from '$lib/github/schema';
+import { obtainSearchParamsForMatchingContributors } from './prompts';
 
 export class QueryTaskManager {
     private static userPendingQueryTasks: Map<string, {
@@ -41,53 +43,31 @@ export class QueryTaskManager {
       }
     }
 
-    static async beginContributorsMatchQueryTask(queryId: string, config: ContributorsMatchTaskCfg): Promise<string> {
-        const query = await prisma.query.findUniqueOrThrow({
-            where: {
-                id: queryId,
+    static async beginContributorsMatchQuery(query: string, config: ContributorsMatchTaskCfg): Promise<{ queryId: string, queryTaskId: string }> {
+   
+        let relevantRepos: RepositoriesResponse = [];
+        let searchParams: ContributorsMatchQueryMetadata | null = null;
+        while(relevantRepos.length < 20) {
+            searchParams = await obtainSearchParamsForMatchingContributors(query);
+       
+            relevantRepos = (await Github.search.repo("system", {
+                keywordsString: searchParams.keywordsString,
+                in: ['description'],
+            })).items;
+        }
+        const { id: queryId } = await prisma.query.create({
+            data: {
+                query: query,
+                metadata: searchParams!,
             },
         });
-        const metadata = ContributorsMatchQueryMetadata.parse(query.metadata);
-        const relevantRepos = await Github.search.repo("system", {
-            keywordsString: metadata.keywordsString,
-            in: ['description'],
-        });
-        if (relevantRepos.items.length === 0) {
-            const queryTask = await prisma.queryTask.create({
-                data: { status: 'COMPLETED' ,
-                    query: {
-                        connect: {
-                            id: queryId,
-                        }
-                    },
-                    taskState: {
-                        type: 'contributors_match',
-                        config,
-                        repositories: {
-                            contributorUrls: [],
-                            index: 0,
-                        },
-                        matches: {},
-                        ...metadata,
-    
-                    },
-                },
-            
-            });
-
-            await prisma.query.update({
-                where: { id: queryId },
-                data: { taskId: queryTask.id },
-            });
-      
-            return queryTask.id;
-        }
+        const metadata = ContributorsMatchQueryMetadata.parse(searchParams!);
 
         const taskState: ContributorsMatchTaskState = {
             type: 'contributors_match',
             config,
             repositories: {
-                contributorUrls: relevantRepos.items.map(repo => repo.contributors_url),
+                contributorUrls: relevantRepos.map(repo => repo.contributors_url),
                 index: 0,
             },
             matches: {},
@@ -123,7 +103,7 @@ export class QueryTaskManager {
             QueryTaskManager.userPendingQueryTasks.get(userId)!.tasks.push(queryTask);
           }
         QueryTaskManager.continueUserQueryTask(userId);
-        return queryTaskId;
+        return { queryId, queryTaskId };
     }
 
     static continueUserQueryTask(userId: string) {

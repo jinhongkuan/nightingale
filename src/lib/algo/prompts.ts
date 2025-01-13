@@ -15,7 +15,6 @@ const getPromptMatchingUsersSummary = (query: string, profile: { location: strin
         ${repo.language ? `Language: ${repo.language}` : ''}
         `
     }).join('\n')}
-    ${profile.location ? `Location: ${profile.location}` : ''}
 
     `
 }
@@ -37,7 +36,7 @@ const getPromptMatchingUsers = (query: string) => {
 }
 
 const getRandomPrompt =  () => {
-    return "Short description of a technical collaborator for a random project idea that uses technology to solve a real problem that will bring about public good. be specific about the problem, ideally a hot-button issue.  be specific about the role of the person (e.g. backend developer with Golang experience, frontend developer with Svelte experience). 1 sentence. no need to be formal. omit 'looking for'/'need a' etc. specify location (ideally related to the issue)"
+    return "Short description of a technical collaborator for a random project idea that uses technology to solve a real problem that will bring about public good. be specific about the problem, ideally a hot-button issue.  be specific about the role of the person (e.g. backend developer with Golang experience, frontend developer with Svelte experience). 1 sentence. no need to be formal. omit 'looking for'/'need a' etc."
 }
 
 export const obtainSearchParamsForMatchingContributors = async ( query: string) => {
