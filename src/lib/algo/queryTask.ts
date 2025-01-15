@@ -1,8 +1,9 @@
 import * as Github from '$lib/github';
 import prisma from '$lib/db/prisma';
-import { ContributorsMatchQueryMetadata, ContributorsMatchTaskState, QueryTaskState, type ContributorsMatchTaskCfg, type QueryTaskResult } from './schema';
+import { GithubContributorsMatchQueryMetadata, ContributorsMatchTaskState, QueryTaskState, type ContributorsMatchTaskCfg, type QueryTaskResult, LinkedinProfilesMatchTaskCfg, LinkedinProfilesMatchTaskState } from './schema';
 import type { RepositoriesResponse } from '$lib/github/schema';
-import { obtainSearchParamsForMatchingContributors } from './prompts';
+import * as Linkedin from '$lib/linkedin';
+import {  obtainSearchParamsForMatchingContributors, obtainSearchParamsForMatchingLinkedinUsers } from './prompts';
 
 export class QueryTaskManager {
     private static userPendingQueryTasks: Map<string, {
@@ -43,10 +44,10 @@ export class QueryTaskManager {
       }
     }
 
-    static async beginContributorsMatchQuery(query: string, config: ContributorsMatchTaskCfg): Promise<{ queryId: string, queryTaskId: string }> {
+    static async beginGithubContributorsMatchQuery(query: string, config: ContributorsMatchTaskCfg): Promise<{ queryId: string, queryTaskId: string }> {
    
         let relevantRepos: RepositoriesResponse = [];
-        let searchParams: ContributorsMatchQueryMetadata | null = null;
+        let searchParams: GithubContributorsMatchQueryMetadata | null = null;
         while(relevantRepos.length < 20) {
             searchParams = await obtainSearchParamsForMatchingContributors(query);
        
@@ -61,7 +62,7 @@ export class QueryTaskManager {
                 metadata: searchParams!,
             },
         });
-        const metadata = ContributorsMatchQueryMetadata.parse(searchParams!);
+        const metadata = GithubContributorsMatchQueryMetadata.parse(searchParams!);
 
         const taskState: ContributorsMatchTaskState = {
             type: 'contributors_match',
@@ -106,6 +107,40 @@ export class QueryTaskManager {
         return { queryId, queryTaskId };
     }
 
+    static async beginLinkedinContributorsMatchQuery(query: string, config: LinkedinProfilesMatchTaskCfg): Promise<{ queryId: string, queryTaskId: string }> {
+        const linkedinQuery = await obtainSearchParamsForMatchingLinkedinUsers(query);
+        const { id: queryId } = await prisma.query.create({
+            data: {
+                query: query,
+                metadata: linkedinQuery,
+            },
+        });
+        const taskState: LinkedinProfilesMatchTaskState = {
+            type: 'linkedin_profiles_match',
+            config,
+            page: 0,
+            profiles: {},
+            companies: {
+                companyUrls: [],
+                index: 0,
+            },
+            query,
+        };
+        const { id: queryTaskId } = await prisma.queryTask.create({
+            data: {
+                query: {
+                    connect: {
+                        id: queryId,
+                    }
+                },
+                status: 'PENDING',
+                taskState,
+            }
+        });
+
+        return { queryId, queryTaskId };
+    }
+
     static continueUserQueryTask(userId: string) {
         if (!QueryTaskManager.userPendingQueryTasks.has(userId)) return; 
         if (QueryTaskManager.userPendingQueryTasks.get(userId)!.ongoing) return;
@@ -144,9 +179,10 @@ export class QueryTask {
         let result: QueryTaskResult;
         if (this.state.type === 'contributors_match') {
             result = await this.stepContributorsMatch(this.state);
-          
+        } else if (this.state.type === 'linkedin_profiles_match') {
+            result = await this.stepLinkedinProfilesMatch(this.state);
         } else {
-            throw new Error(`Unknown task type: ${this.state.type}`);
+            throw new Error(`Unknown task type`);
         }
         if (result.status === 'COMPLETED') {
             await prisma.queryTask.update({
@@ -156,20 +192,22 @@ export class QueryTask {
         }
         return result;
     }
+    
+    private async persistState(state: QueryTaskState) {
+        await prisma.queryTask.update({
+            where: {
+                id: this.taskId,
+            },
+            data: {
+                taskState: state,
+            }
+        });
+    }
 
     private async stepContributorsMatch(state: ContributorsMatchTaskState): Promise<QueryTaskResult> {
         let currentBatch = 0;
 
-        const persistState = async () => {
-            await prisma.queryTask.update({
-                where: {
-                    id: this.taskId,
-                },
-                data: {
-                    taskState: state,
-                }
-            });
-        }
+      
 
         const updateUserContributions = async (contributor: string, contributions: number): Promise<number> => {
             if (!state.matches[contributor]) {
@@ -198,7 +236,7 @@ export class QueryTask {
         while (currentBatch < state.config.batchSize) {
             
                 if (state.repositories.index >= state.repositories.contributorUrls.length || (Object.keys(state.matches).length >= state.config.haltOnRContributorsCount)) {
-                    await persistState();
+                    await this.persistState(state);
                     return {
                         batchSize: currentBatch,
                         status: 'COMPLETED',
@@ -223,9 +261,35 @@ export class QueryTask {
                 state.repositories.index++;      
         }
     
-        await persistState();
+        await this.persistState(state);
         return {
             batchSize: currentBatch,
+            status: 'PENDING',
+        };
+    }
+
+    private async stepLinkedinProfilesMatch(state: LinkedinProfilesMatchTaskState): Promise<QueryTaskResult> {
+        const results = await Linkedin.search.profiles({ query: state.query, page: state.page }, this.initiatorId);
+        const batchSize = 10; // 10 results per page
+        if (!results) {
+            return {
+                batchSize,
+                status: 'CANCELLED',
+            };
+        }
+        results.profiles.forEach(profile => {
+            state.profiles[profile.id] = profile;
+        });
+        state.companies.companyUrls.push(...results.companies.map(company => company.link));
+        state.page++;
+        if (results.remainingPages === 0 || Object.keys(state.profiles).length >= state.config.maxProfiles) {
+            return {
+                batchSize,
+                status: 'COMPLETED',
+            };
+        }
+        return {
+            batchSize,
             status: 'PENDING',
         };
     }

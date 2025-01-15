@@ -30,6 +30,14 @@ model GithubUser {
   updatedAt DateTime @updatedAt
 }
 
+model LinkedinProfile {
+  id String @id @default(cuid())
+  linkedInId String @unique
+  queryMatches QueryMatch[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum QueryTaskStatus {
   PENDING
   COMPLETED
@@ -63,8 +71,10 @@ model QueryMatch {
   id String @id @default(cuid())
   queryTask QueryTask @relation(fields: [queryTaskId], references: [id])
   queryTaskId String
-  githubUser GithubUser @relation(fields: [githubUserId], references: [id])
-  githubUserId String
+  githubUser GithubUser? @relation(fields: [githubUserId], references: [id])
+  githubUserId String?
+  linkedinProfile LinkedinProfile? @relation(fields: [linkedinProfileId], references: [id])
+  linkedinProfileId String?
   summary String
   rating Float
   createdAt DateTime @default(now())

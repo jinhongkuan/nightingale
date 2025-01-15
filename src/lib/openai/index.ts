@@ -1,52 +1,15 @@
 import { OpenAI } from 'openai';
 import { OPENAI_API_KEY } from '$env/static/private';
-import prisma from '$lib/db/prisma';
+import { RequestQueue } from '$lib/utils/requestQueue';
 
 const openai = new OpenAI({
     apiKey: OPENAI_API_KEY,
 });
 
-class OpenAIRequestQueue {
-    private static queue: Promise<unknown>[] = [];
-    private static readonly MAX_CONCURRENT = 10;
-    private static readonly PAUSE_ON_ERROR = 1000;
-
-    static async add<T>(queryTaskId: string | null, fn: () => Promise<T>): Promise<T | null> {
-        // Wait if at capacity
-        while (this.queue.length >= this.MAX_CONCURRENT) {
-            await Promise.race(this.queue);
-        }
-
-
-            if (queryTaskId) {
-                try {
-                    await prisma.queryTask.findUniqueOrThrow({ where: { id: queryTaskId, status: { not: 'CANCELLED' } } })
-                } catch (e) {
-                    return null;
-                }
-            }
-           
-            // Add request to queue and execute
-            const promise = fn();
-            this.queue.push(promise);
-            const result = await promise;
-            
-            if (result === null) {
-                // Remove failed request
-                this.queue = this.queue.filter(p => p !== fn());
-    
-                // Pause and retry on error
-                await new Promise(resolve => setTimeout(resolve, this.PAUSE_ON_ERROR));
-                return this.add(queryTaskId, fn);
-            } else {
-                // Remove from queue when done
-                this.queue = this.queue.filter(p => p !== promise);
-                return result;
-            }
-            
-   
-    }
-}
+const OpenAIRequestQueue = new RequestQueue({
+    maxConcurrent: 20,
+    pauseOnError: 1000,
+});
 
 export const queryJSON = async (queryTaskId: string | null, query: string) => {
     return OpenAIRequestQueue.add(queryTaskId, async () => {
@@ -65,13 +28,14 @@ export const queryJSON = async (queryTaskId: string | null, query: string) => {
         try {
             return JSON.parse(str);
         } catch (e) {
+            console.error(e);
             return null;
         }
     });
 }
 
-export const queryText = async (query: string) => {
-    return OpenAIRequestQueue.add(null, async () => {
+export const queryText = async (queryTaskId: string | null, query: string) => {
+    return OpenAIRequestQueue.add(queryTaskId, async () => {
         const response = await openai.beta.chat.completions.parse({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: query }],
