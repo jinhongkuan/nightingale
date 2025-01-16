@@ -55,7 +55,7 @@ export const getLinkedinPromptMatchingUsers = (query: string) => {
 }
 
 const getRandomPrompt =  () => {
-    return "Short description of a technical collaborator for a random project idea that uses technology to solve a real problem that will bring about public good. be specific about the problem, ideally a hot-button issue.  be specific about the role of the person (e.g. backend developer with Golang experience, frontend developer with Svelte experience). 1 sentence. no need to be formal. omit 'looking for'/'need a' etc."
+    return "Short description of a technical collaborator for a random project idea that uses technology to solve a real problem that will bring about public good. be specific about the problem, ideally a hot-button issue.  be specific about the role of the person (e.g. backend developer with Golang experience, frontend developer with Svelte experience). 1 sentence. mention the location in which the issue is relevant to, no need to be formal. omit 'looking for'/'need a' etc."
 }
 
 export const obtainSearchParamsForMatchingContributors = async ( query: string) => {
@@ -66,12 +66,12 @@ export const obtainSearchParamsForMatchingContributors = async ( query: string) 
     return OpenAIQueryMatchingUsersResponse.parse(openai);
 }
 
-export const obtainSearchParamsForMatchingLinkedinUsers = async ( query: string) => {
-    const openai = await OpenAI.queryText(null, getLinkedinPromptMatchingUsers(query));
-    if (!openai) {
+export const obtainSearchParamsForMatchingLinkedinUsers = async ( _query: string) => {
+    const query = await OpenAI.queryText(null, getLinkedinPromptMatchingUsers(_query));
+    if (!query) {
         throw new Error('Failed to obtain search params for matching linkedin profiles');
     }
-    return openai;
+    return { query };
 }
 
 export const summarizeContributorMatch = async (queryTaskId: string, query: string, profile: { location: string | null }, repositories: { description: string , name: string,  language: string | null, created_at: string }[]) => {

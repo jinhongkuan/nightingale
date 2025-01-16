@@ -19,8 +19,9 @@ export const queryMatchingGithubUsers = async (query: string): Promise<string> =
 
 export const queryMatchingLinkedinUsers = async (query: string): Promise<string> => {
     const { queryId } = await QueryTaskManager.beginLinkedinContributorsMatchQuery(query, {
-        maxProfiles: 100,
-        maxCompanies: 20,
+        maxProfiles: 30,
+        maxCompanies: 5,
+        maxQueryPages: 4,
     }); 
     return queryId;
 }
@@ -215,6 +216,7 @@ export const getLinkedinProfilesMatch = async (queryId: string): Promise<{
             task: true,
         },
     });
+
 
     const searchParams = LinkedinProfilesMatchQueryMetadata.parse(query.metadata);
     const task = query.task;

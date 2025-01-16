@@ -57,6 +57,7 @@ export type ContributorsMatchTaskCfg = z.infer<typeof ContributorsMatchTaskCfg>;
 export const LinkedinProfilesMatchTaskCfg = z.object({
     maxProfiles: z.number(),
     maxCompanies: z.number(),
+    maxQueryPages: z.number(),
 });
 
 export const LinkedinProfilesMatchTaskState = z.object({

@@ -138,6 +138,24 @@ export class QueryTaskManager {
             }
         });
 
+        await prisma.query.update({
+            where: { id: queryId },
+            data: { taskId: queryTaskId },
+        });
+
+        const userId = "system" // query.initiatorId; TODO: support user-specific github api
+        const queryTask = new QueryTask(queryTaskId, taskState, "system");
+
+        if (!QueryTaskManager.userPendingQueryTasks.has(userId)) {
+            QueryTaskManager.userPendingQueryTasks.set(userId, {
+              tasks: [queryTask],
+              ongoing: false,
+            });
+          } else {
+            QueryTaskManager.userPendingQueryTasks.get(userId)!.tasks.push(queryTask);
+          }
+        QueryTaskManager.continueUserQueryTask(userId);
+
         return { queryId, queryTaskId };
     }
 
@@ -282,7 +300,8 @@ export class QueryTask {
         });
         state.companies.companyUrls.push(...results.companies.map(company => company.link));
         state.page++;
-        if (results.remainingPages === 0 || Object.keys(state.profiles).length >= state.config.maxProfiles) {
+        await this.persistState(state);
+        if (results.remainingPages === 0 || Object.keys(state.profiles).length >= state.config.maxProfiles || state.page >= state.config.maxQueryPages) {
             return {
                 batchSize,
                 status: 'COMPLETED',

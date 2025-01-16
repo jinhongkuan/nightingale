@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fade, slide } from 'svelte/transition';
+    import { fade } from 'svelte/transition';
     import type { GetContributorsMatchResponse, GetLinkedinProfilesMatchResponse } from './api/contributorsMatch/+server';
 
     let query = $state<string>('');
@@ -59,9 +59,10 @@
             })
             .concat(data.matches.filter(m => !matches.some(m2 => m2.htmlUrl === m.htmlUrl)));
 
+        matchCount = data.indexedCount;
+
         if (data.status === 'COMPLETED') {
             searching = false;
-            if (searchInterval) clearInterval(searchInterval);
         }
     }
 
@@ -97,7 +98,7 @@
             Nightingale
         </h1>
         <div class="w-full max-w-md ">
-            <p class="text-lg mb-4 flex flex-col sm:flex-row sm:items-center justify-center cursor-pointer hover:opacity-80" on:click={() => showMission = !showMission}>
+            <p class="text-lg mb-4 flex flex-col sm:flex-row sm:items-center justify-center cursor-pointer hover:opacity-80" onclick={() => showMission = !showMission}>
                 <span class:flash-build-text={flashBuildText}>Build what you believe in</span>
               
                 <span class="mx-2 sm:hidden">•</span>
@@ -126,7 +127,7 @@
             <button
                 class="absolute bottom-16 right-1 px-1 h-10 rounded-lg transition-all {!fetchingPrompt ? 'hover:bg-gray-100 hover:shadow-lg hover:shadow-gray-200/50' : ''}"
                 title="Random prompt"
-                on:click={handleRandomPrompt}
+                onclick={handleRandomPrompt}
             >
                 {#if fetchingPrompt}
                     <div class="animate-spin rounded-full h-8 w-8 border-2 border-gray-400 border-t-transparent"></div>
@@ -139,7 +140,7 @@
                 <div class="flex gap-2">
                     {#if !searching}
                         <button
-                            on:click={() => handleSearch('github')}
+                            onclick={() => handleSearch('github')}
                             class="px-6 h-10 rounded-lg bg-[#24292f] hover:bg-[#1b1f23] text-white"
                         >
                             Match on <svg class="inline-block w-5 h-5 ml-1" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
@@ -147,7 +148,7 @@
                             </svg>
                         </button>
                         <button
-                            on:click={() => handleSearch('linkedin')}
+                            onclick={() => handleSearch('linkedin')}
                             class="px-6 h-10 rounded-lg bg-[#0077b5] hover:bg-[#006399] text-white"
                         >
                             Match on <svg class="inline-block w-5 h-5 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -156,7 +157,7 @@
                         </button>
                     {:else}
                         <button
-                            on:click={() => handleSearch(searchPlatform!)}
+                            onclick={() => handleSearch(searchPlatform!)}
                             class="px-6 h-10 rounded-lg bg-red-600 hover:bg-red-700 text-white"
                         >
                             Cancel Search

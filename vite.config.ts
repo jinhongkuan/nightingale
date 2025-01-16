@@ -8,11 +8,5 @@ export default defineConfig({
 			allow: ['..']
 		}
 	},
-	define: {
-		'process.env.NEW_RELIC_APP_NAME': process.env.NEW_RELIC_APP_NAME,
-		'process.env.NEW_RELIC_LICENSE_KEY': process.env.NEW_RELIC_LICENSE_KEY
-	},
-	optimizeDeps: {
-		include: ['newrelic']
-	}
+
 });
